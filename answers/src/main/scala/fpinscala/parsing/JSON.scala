@@ -17,14 +17,14 @@ object JSON {
     // we'll hide the string implicit conversion and promote strings to tokens instead
     // this is a bit nicer than having to write token everywhere
     import P.{string => _, _}
-    implicit def tok(s: String) = token(P.string(s))
+    implicit def tok(s: String): Parser[String] = token(P.string(s))
 
-    def array = surround("[","]")(
+    def array: Parser[JArray] = surround("[","]")(
       value sep "," map (vs => JArray(vs.toIndexedSeq))) scope "array"
-    def obj = surround("{","}")(
+    def obj: Parser[JObject] = surround("{","}")(
       keyval sep "," map (kvs => JObject(kvs.toMap))) scope "object"
-    def keyval = escapedQuoted ** (":" *> value)
-    def lit = scope("literal") {
+    def keyval: Parser[(String, JSON)] = escapedQuoted ** (":" *> value)
+    def lit: Parser[JSON] = scope("literal") {
       "null".as(JNull) |
       double.map(JNumber(_)) |
       escapedQuoted.map(JString(_)) |
@@ -69,7 +69,7 @@ object JSONExample extends App {
   val P = fpinscala.parsing.Reference
   import fpinscala.parsing.ReferenceTypes.Parser
 
-  def printResult[E](e: Either[E,JSON]) =
+  def printResult[E](e: Either[E,JSON]): Unit =
     e.fold(println, println)
 
   val json: Parser[JSON] = JSON.jsonParser(P)

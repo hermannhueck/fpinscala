@@ -1,6 +1,7 @@
 package fpinscala.laziness
 
 import Stream._
+
 trait Stream[+A] {
 
   // The natural recursive solution
@@ -119,7 +120,7 @@ trait Stream[+A] {
   def takeViaUnfold(n: Int): Stream[A] =
     unfold((this,n)) {
       case (Cons(h,t), 1) => Some((h(), (empty, 0)))
-      case (Cons(h,t), n) if n > 1 => Some((h(), (t(), n-1)))
+      case (Cons(h,t), n2) if n2 > 1 => Some((h(), (t(), n2-1)))
       case _ => None
     }
 
@@ -141,9 +142,6 @@ trait Stream[+A] {
     zipWith(s2)((_,_))
 
 
-  def zipAll[B](s2: Stream[B]): Stream[(Option[A],Option[B])] =
-    zipWithAll(s2)((_,_))
-
   def zipWithAll[B, C](s2: Stream[B])(f: (Option[A], Option[B]) => C): Stream[C] =
     Stream.unfold((this, s2)) {
       case (Empty, Empty) => None
@@ -151,6 +149,9 @@ trait Stream[+A] {
       case (Empty, Cons(h, t)) => Some(f(Option.empty[A], Some(h())) -> (empty[A] -> t()))
       case (Cons(h1, t1), Cons(h2, t2)) => Some(f(Some(h1()), Some(h2())) -> (t1() -> t2()))
     }
+
+  def zipAll[B](s2: Stream[B]): Stream[(Option[A],Option[B])] =
+    zipWithAll(s2)((_,_))
 
   /*
   `s startsWith s2` when corresponding elements of `s` and `s2` are all equal, until the point that `s2` is exhausted. If `s` is exhausted first, or we find an element that doesn't match, we terminate early. Using non-strictness, we can compose these three separate logical steps--the zipping, the termination when the second stream is exhausted, and the termination if a nonmatching element is found or the first stream is exhausted.
@@ -219,7 +220,7 @@ object Stream {
   def from(n: Int): Stream[Int] =
     cons(n, from(n+1))
 
-  val fibs = {
+  val fibs: Stream[Int] = {
     def go(f0: Int, f1: Int): Stream[Int] =
       cons(f0, go(f1, f0+f1))
     go(0, 1)
@@ -243,15 +244,15 @@ object Stream {
   /*
   Scala provides shorter syntax when the first action of a function literal is to match on an expression.  The function passed to `unfold` in `fibsViaUnfold` is equivalent to `p => p match { case (f0,f1) => ... }`, but we avoid having to choose a name for `p`, only to pattern match on it.
   */
-  val fibsViaUnfold =
+  val fibsViaUnfold: Stream[Int] =
     unfold((0,1)) { case (f0,f1) => Some((f0,(f1,f0+f1))) }
 
-  def fromViaUnfold(n: Int) =
+  def fromViaUnfold(n: Int): Stream[Int] =
     unfold(n)(n => Some((n,n+1)))
 
-  def constantViaUnfold[A](a: A) =
+  def constantViaUnfold[A](a: A): Stream[A] =
     unfold(a)(_ => Some((a,a)))
 
   // could also of course be implemented as constant(1)
-  val onesViaUnfold = unfold(1)(_ => Some((1,1)))
+  val onesViaUnfold: Stream[Int] = unfold(1)(_ => Some((1,1)))
 }

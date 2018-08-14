@@ -68,10 +68,10 @@ object Monoid {
   case class Stub(chars: String) extends WC
   case class Part(lStub: String, words: Int, rStub: String) extends WC
 
-  def par[A](m: Monoid[A]): Monoid[Par[A]] = 
+  def par[A](m: Monoid[A]): Monoid[Par[A]] =
     ???
 
-  def parFoldMap[A,B](v: IndexedSeq[A], m: Monoid[B])(f: A => B): Par[B] = 
+  def parFoldMap[A,B](v: IndexedSeq[A], m: Monoid[B])(f: A => B): Par[B] =
     ???
 
   val wcMonoid: Monoid[WC] = ???
@@ -156,4 +156,3 @@ object OptionFoldable extends Foldable[Option] {
   override def foldRight[A, B](as: Option[A])(z: B)(f: (A, B) => B) =
     ???
 }
-

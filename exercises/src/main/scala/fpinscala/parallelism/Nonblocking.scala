@@ -7,18 +7,19 @@ import language.implicitConversions
 object Nonblocking {
 
   trait Future[+A] {
-    private[parallelism] def apply(k: A => Unit): Unit
+    private[parallelism] def apply(callback: A => Unit): Unit
   }
 
   type Par[+A] = ExecutorService => Future[A]
 
   object Par {
 
-    def run[A](es: ExecutorService)(p: Par[A]): A = {
+    def run[A](es: ExecutorService)(pa: Par[A]): A = {
       val ref = new java.util.concurrent.atomic.AtomicReference[A] // A mutable, threadsafe reference, to use for storing the result
       val latch = new CountDownLatch(1) // A latch which, when decremented, implies that `ref` has the result
-      p(es) { a => ref.set(a); latch.countDown } // Asynchronously set the result, and decrement the latch
-      latch.await // Block until the `latch.countDown` is invoked asynchronously
+      val future: Future[A] = pa(es)
+      future { a => ref.set(a); latch.countDown() } // Asynchronously set the result, and decrement the latch
+      latch.await() // Block until the `latch.countDown` is invoked asynchronously
       ref.get // Once we've passed the latch, we know `ref` has been set, and return its value
     }
 
@@ -35,10 +36,10 @@ object Nonblocking {
           cb(a)
       }
 
-    def fork[A](a: => Par[A]): Par[A] =
+    def fork[A](pa: => Par[A]): Par[A] =
       es => new Future[A] {
         def apply(cb: A => Unit): Unit =
-          eval(es)(a(es)(cb))
+          eval(es)(pa(es)(cb))
       }
 
     /**
@@ -46,7 +47,7 @@ object Nonblocking {
      * This will come in handy in Chapter 13.
      */
     def async[A](f: (A => Unit) => Unit): Par[A] = es => new Future[A] {
-      def apply(k: A => Unit) = f(k)
+      def apply(k: A => Unit): Unit = f(k)
     }
 
     /**
@@ -54,24 +55,24 @@ object Nonblocking {
      * asynchronously, using the given `ExecutorService`.
      */
     def eval(es: ExecutorService)(r: => Unit): Unit =
-      es.submit(new Callable[Unit] { def call = r })
+      es.submit(new Callable[Unit] { def call: Unit = r })
 
 
-    def map2[A,B,C](p: Par[A], p2: Par[B])(f: (A,B) => C): Par[C] =
+    def map2[A, B, C](pa1: Par[A], pa2: Par[B])(f: (A, B) => C): Par[C] =
       es => new Future[C] {
         def apply(cb: C => Unit): Unit = {
           var ar: Option[A] = None
           var br: Option[B] = None
-          val combiner = Actor[Either[A,B]](es) {
+          val combiner = Actor[Either[A, B]](es) {
             case Left(a) =>
-              if (br.isDefined) eval(es)(cb(f(a,br.get)))
+              if (br.isDefined) eval(es)(cb(f(a, br.get)))
               else ar = Some(a)
             case Right(b) =>
-              if (ar.isDefined) eval(es)(cb(f(ar.get,b)))
+              if (ar.isDefined) eval(es)(cb(f(ar.get, b)))
               else br = Some(b)
           }
-          p(es)(a => combiner ! Left(a))
-          p2(es)(b => combiner ! Right(b))
+          pa1(es)(a => combiner ! Left(a))
+          pa2(es)(b => combiner ! Right(b))
         }
       }
 
@@ -106,6 +107,12 @@ object Nonblocking {
     def sequence[A](as: List[Par[A]]): Par[List[A]] =
       map(sequenceBalanced(as.toIndexedSeq))(_.toList)
 
+    def parMap[A,B](as: List[A])(f: A => B): Par[List[B]] =
+      sequence(as.map(asyncF(f)))
+
+    def parMap[A,B](as: IndexedSeq[A])(f: A => B): Par[IndexedSeq[B]] =
+      sequenceBalanced(as.map(asyncF(f)))
+
     // exercise answers
 
     /*
@@ -122,12 +129,14 @@ object Nonblocking {
      * through the implementation. What is the type of `p(es)`? What
      * about `t(es)`? What about `t(es)(cb)`?
      */
-    def choice[A](p: Par[Boolean])(t: Par[A], f: Par[A]): Par[A] =
+    def choice[A](pCond: Par[Boolean])(pa1: Par[A], pa2: Par[A]): Par[A] =
       es => new Future[A] {
         def apply(cb: A => Unit): Unit =
-          p(es) { b =>
-            if (b) eval(es) { t(es)(cb) }
-            else eval(es) { f(es)(cb) }
+          pCond(es) { b =>
+            if (b)
+              eval(es) { pa1(es)(cb) }
+            else
+              eval(es) { pa2(es)(cb) }
           }
       }
 
@@ -165,10 +174,10 @@ object Nonblocking {
     implicit def toParOps[A](p: Par[A]): ParOps[A] = new ParOps(p)
 
     // infix versions of `map`, `map2`
-    class ParOps[A](p: Par[A]) {
-      def map[B](f: A => B): Par[B] = Par.map(p)(f)
-      def map2[B,C](b: Par[B])(f: (A,B) => C): Par[C] = Par.map2(p,b)(f)
-      def zip[B](b: Par[B]): Par[(A,B)] = p.map2(b)((_,_))
+    class ParOps[A](par: Par[A]) {
+      def map[B](f: A => B): Par[B] = Par.map(par)(f)
+      def map2[B, C](b: Par[B])(f: (A, B) => C): Par[C] = Par.map2(par, b)(f)
+      def zip[B](b: Par[B]): Par[(A, B)] = par.map2(b)((_, _))
     }
   }
 }
