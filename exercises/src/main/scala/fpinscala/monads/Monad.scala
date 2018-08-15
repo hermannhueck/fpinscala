@@ -57,6 +57,7 @@ trait Monad[F[_]] extends Functor[F] {
   def replicateM[A](n: Int, fa: F[A]): F[List[A]] =
     sequence(List.fill(n)(fa))
 
+  // Kleisli composition
   def compose[A, B, C](f: A => F[B], g: B => F[C]): A => F[C] =
     a => flatMap(f(a))(g)
 

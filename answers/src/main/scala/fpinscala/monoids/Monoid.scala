@@ -11,34 +11,34 @@ trait Monoid[A] {
 
 object Monoid {
 
-  val stringMonoid = new Monoid[String] {
-    def op(a1: String, a2: String) = a1 + a2
-    val zero = ""
+  val stringMonoid: Monoid[String] = new Monoid[String] {
+    def op(a1: String, a2: String): String = a1 + a2
+    val zero: String = ""
   }
 
-  def listMonoid[A] = new Monoid[List[A]] {
-    def op(a1: List[A], a2: List[A]) = a1 ++ a2
-    val zero = Nil
+  def listMonoid[A]: Monoid[List[A]] = new Monoid[List[A]] {
+    def op(a1: List[A], a2: List[A]): List[A] = a1 ++ a2
+    val zero: List[A] = Nil
   }
 
   val intAddition: Monoid[Int] = new Monoid[Int] {
-    def op(x: Int, y: Int) = x + y
-    val zero = 0
+    def op(x: Int, y: Int): Int = x + y
+    val zero: Int = 0
   }
 
   val intMultiplication: Monoid[Int] = new Monoid[Int] {
-    def op(x: Int, y: Int) = x * y
-    val zero = 1
+    def op(x: Int, y: Int): Int = x * y
+    val zero: Int = 1
   }
 
   val booleanOr: Monoid[Boolean] = new Monoid[Boolean] {
-    def op(x: Boolean, y: Boolean) = x || y
-    val zero = false
+    def op(x: Boolean, y: Boolean): Boolean = x || y
+    val zero: Boolean = false
   }
 
   val booleanAnd: Monoid[Boolean] = new Monoid[Boolean] {
-    def op(x: Boolean, y: Boolean) = x && y
-    val zero = true
+    def op(x: Boolean, y: Boolean): Boolean = x && y
+    val zero: Boolean = true
   }
 
   // Notice that we have a choice in how we implement `op`.
@@ -49,14 +49,14 @@ object Monoid {
   // `intAddition` are equivalent to their duals because their `op` is commutative
   // as well as associative.
   def optionMonoid[A]: Monoid[Option[A]] = new Monoid[Option[A]] {
-    def op(x: Option[A], y: Option[A]) = x orElse y
-    val zero = None
+    def op(x: Option[A], y: Option[A]): Option[A] = x orElse y
+    val zero: Option[A] = None
   }
 
   // We can get the dual of any monoid just by flipping the `op`.
   def dual[A](m: Monoid[A]): Monoid[A] = new Monoid[A] {
     def op(x: A, y: A): A = m.op(y, x)
-    val zero = m.zero
+    val zero: A = m.zero
   }
 
   // Now we can have both monoids on hand
@@ -66,8 +66,8 @@ object Monoid {
   // There is a choice of implementation here as well.
   // Do we implement it as `f compose g` or `f andThen g`? We have to pick one.
   def endoMonoid[A]: Monoid[A => A] = new Monoid[A => A] {
-    def op(f: A => A, g: A => A) = f compose g
-    val zero = (a: A) => a
+    def op(f: A => A, g: A => A): A => A = f compose g
+    val zero: A => A = (a: A) => a
   }
 
   import fpinscala.testing._
@@ -177,7 +177,7 @@ object Monoid {
     // `unstub(s)` is 0 if `s` is empty, otherwise 1.
     def unstub(s: String) = s.length min 1
     foldMapV(s.toIndexedSeq, wcMonoid)(wc) match {
-      case Stub(s) => unstub(s)
+      case Stub(s1) => unstub(s1)
       case Part(l, w, r) => unstub(l) + w + unstub(r)
     }
   }
