@@ -21,23 +21,25 @@ object Throw extends Monad[Throw] {
 
   /* Exception indicating that the central loop should call `f(a)`. */
   case class Call[A,+B] private[Throw] (a: A, f: A => B) extends Exception {
-    override def fillInStackTrace = this
+    override def fillInStackTrace: Call[A, B] = this
   }
 
   case class Done[+A](a: A) extends Throw[A]
   case class More[+A](thunk: () => Throw[A]) extends Throw[A]
 
   /* Defer evaluation of `f(a)` to the central evaluation loop. */
-  def defer[A,B](a: A)(f: A => B): B =
-    throw new Call(a, f)
+  def defer[A, B](a: A)(f: A => B): B = throw Call(a, f)
 
   /* Central evaluation loop. */
   def ap[A,B](a: A)(f: A => B): B = {
     var ai: Any = a
     var fi: Any => Any = f.asInstanceOf[Any => Any]
     while (true) {
-      try return fi(ai).asInstanceOf[B]
-      catch { case Call(a2,f2) => ai = a2; fi = f2; }
+        try return fi(ai).asInstanceOf[B]
+        catch { case Call(a2,f2) =>
+          ai = a2
+          fi = f2
+      }
     }
     return null.asInstanceOf[B] // unreachable
   }

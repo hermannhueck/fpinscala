@@ -427,8 +427,8 @@ object IO3 {
   }
 
   case object ReadLine extends Console[Option[String]] {
-    def toPar = Par.lazyUnit(run)
-    def toThunk = () => run
+    def toPar: Par[Option[String]] = Par.lazyUnit(run)
+    def toThunk: () => Option[String] = () => run
 
     def run: Option[String] =
       try Some(readLine())
@@ -444,8 +444,8 @@ object IO3 {
   }
 
   case class PrintLine(line: String) extends Console[Unit] {
-    def toPar = Par.lazyUnit(println(line))
-    def toThunk = () => println(line)
+    def toPar: Par[Unit] = Par.lazyUnit(println(line))
+    def toThunk: () => Unit = () => println(line)
     def toReader = ConsoleReader { s => () } // noop
     def toState = ConsoleState { bufs => ((), bufs.copy(out = bufs.out :+ line)) } // append to the output
   }
@@ -474,15 +474,15 @@ object IO3 {
 
   type ~>[F[_], G[_]] = Translate[F,G] // gives us infix syntax `F ~> G` for `Translate[F,G]`
 
-  implicit val function0Monad = new Monad[Function0] {
-    def unit[A](a: => A) = () => a
-    def flatMap[A,B](a: Function0[A])(f: A => Function0[B]) =
+  implicit val function0Monad: Monad[Function0] = new Monad[Function0] {
+    def unit[A](a: => A): () => A = () => a
+    def flatMap[A,B](a: Function0[A])(f: A => Function0[B]): () => B =
       () => f(a())()
   }
 
   implicit val parMonad = new Monad[Par] {
-    def unit[A](a: => A) = Par.unit(a)
-    def flatMap[A,B](a: Par[A])(f: A => Par[B]) = Par.fork { Par.flatMap(a)(f) }
+    def unit[A](a: => A): Par[A] = Par.unit(a)
+    def flatMap[A,B](a: Par[A])(f: A => Par[B]): Par[B] = Par.fork { Par.flatMap(a)(f) }
   }
 
   def runFree[F[_],G[_],A](free: Free[F,A])(t: F ~> G)(
@@ -494,9 +494,9 @@ object IO3 {
       case _ => sys.error("Impossible, since `step` eliminates these cases")
     }
 
-  val consoleToFunction0 =
+  val consoleToFunction0: Console ~> Function0 =
     new (Console ~> Function0) { def apply[A](a: Console[A]) = a.toThunk }
-  val consoleToPar =
+  val consoleToPar: Console ~> Par =
     new (Console ~> Par) { def apply[A](a: Console[A]) = a.toPar }
 
   def runConsoleFunction0[A](a: Free[Console,A]): () => A =
@@ -524,7 +524,7 @@ object IO3 {
 
   def runConsole[A](a: Free[Console,A]): A =
     runTrampoline { translate(a)(new (Console ~> Function0) {
-      def apply[A](c: Console[A]) = c.toThunk
+      def apply[A](c: Console[A]): () => A = c.toThunk
     })}
 
 
@@ -617,12 +617,12 @@ object IO3 {
     Par.async { (cb: Either[Throwable, Array[Byte]] => Unit) =>
       val buf = ByteBuffer.allocate(numBytes)
       file.read(buf, fromPosition, (), new CompletionHandler[Integer, Unit] {
-        def completed(bytesRead: Integer, ignore: Unit) = {
+        def completed(bytesRead: Integer, ignore: Unit): Unit = {
           val arr = new Array[Byte](bytesRead)
           buf.slice.get(arr, 0, bytesRead)
           cb(Right(arr))
         }
-        def failed(err: Throwable, ignore: Unit) =
+        def failed(err: Throwable, ignore: Unit): Unit =
           cb(Left(err))
       })
     }
