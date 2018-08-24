@@ -515,16 +515,16 @@ object IO3 {
   // without going through `Par`. Hint: define `translate` using `runFree`.
 
   def translate[F[_],G[_],A](f: Free[F,A])(fg: F ~> G): Free[G,A] = {
-    type FreeG[A] = Free[G,A]
+    type FreeG[AA] = Free[G,AA]
     val t = new (F ~> FreeG) {
-      def apply[A](a: F[A]): Free[G,A] = Suspend { fg(a) }
+      def apply[AA](a: F[AA]): Free[G,AA] = Suspend { fg(a) }
     }
     runFree(f)(t)(freeMonad[G])
   }
 
   def runConsole[A](a: Free[Console,A]): A =
     runTrampoline { translate(a)(new (Console ~> Function0) {
-      def apply[A](c: Console[A]): () => A = c.toThunk
+      def apply[AA](c: Console[AA]): () => AA = c.toThunk
     })}
 
 
